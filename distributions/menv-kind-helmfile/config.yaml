@@ -1,0 +1,34 @@
+# This section configures the machine
+machine:
+  proxy:
+    # Enable this if the machine is running behind corp proxy
+    enabled: false
+    http_endpoint: http://proxy:3128/
+    https_endpoint: http://proxy:3128/
+    exclusions: "169.254.169.254"
+
+# This section configures the KIND cluster
+cluster:
+  # Name of the cluster
+  name: test-cluster
+
+  networking:
+    # Set the subnet for docker network
+    # It will be "$ip_subnet.0/16"
+    ip_subnet: "172.20.0"
+
+  repositories:
+    insecure:
+      - https://ghcr.io
+      - https://registry.k8s.io
+      - https://quay.io
+
+# This section configures the installation process
+installation:
+  mode: helmfile
+
+  # Configration for Helmfile installer
+  helmfile:
+    path: "./helmfile.yaml"
+    environment: default
+    value_files:

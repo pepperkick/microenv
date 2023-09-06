@@ -1,0 +1,16 @@
+commands:
+  - name: add-node
+    type: utility
+    script: ./scripts/kind-add-node.sh
+    help: |-
+      add-node [<names>]
+        Add a new node to existing KIND cluster
+        Example: ./menv.sh add-node test-node1
+      NOTE: Only v1.25.9 supported
+  - name: remove-node
+    type: utility
+    script: ./scripts/kind-remove-node.sh
+    help: |-
+      remove-node [<names>] 
+        Remove a node from existing KIND cluster
+        Example: ./menv.sh remove-node test-node1

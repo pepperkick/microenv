@@ -1,0 +1,15 @@
+ingress:
+  certs:
+    # Automatically generate or fetch certificate based on the mode
+    # Following modes are supported
+    # - letsencrypt: Use letsencrypt to generate certificates
+    mode: letsencrypt
+
+    # For letsencrypt mode, following configures the cert generation
+    letsencrypt:
+      email: "abc@abc.xyz"
+
+      # Challenge to use for domain verification
+      # Following values are supported
+      # - route53: Use AWS route53
+      challenge: "route53"

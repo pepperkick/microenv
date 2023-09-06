@@ -1,0 +1,6 @@
+output: menv
+modules:
+  - git: https://github.com/pepperkick/microenv.git
+    paths:
+      - modules/menv-core-machine
+      - modules/menv-aws

@@ -1,0 +1,39 @@
+name: Distribution Builds
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v3
+      - run:
+          chmod +x ./build.sh;
+          ./build.sh -d kind-helmfile;
+          ./build.sh -d automations-openvpn;
+          ./build.sh -d automations-aws-openvpn;
+      - uses: actions/upload-artifact@v3
+        with:
+          name: menv-kind-helmfile
+          path: ./menv-kind-helmfile.zip
+      - uses: actions/upload-artifact@v3
+        with:
+          name: menv-kind-automations-openvpn
+          path: ./menv-kind-automations-openvpn.zip
+      - uses: actions/upload-artifact@v3
+        with:
+          name: menv-kind-automations-aws-openvpn
+          path: ./menv-kind-automations-aws-openvpn.zip
+      - env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run:
+          gh release upload nightly ./build.sh --clobber;
+          gh release upload nightly ./menv-kind-helmfile.zip --clobber;
+          gh release upload nightly ./menv-automations-openvpn.zip --clobber;
+          gh release upload nightly ./menv-automations-aws-openvpn.zip --clobber;

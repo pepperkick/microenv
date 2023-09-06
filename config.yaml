@@ -1,0 +1,181 @@
+# This section configures the machine
+machine:
+  ssh:
+    enabled: false
+
+  swap:
+    enabled: false
+    ## Size of the swapfile to create
+    ## $size * 1MB
+    size: "65536"
+
+  proxy:
+    # Enable this if the machine is running behind corp proxy
+    enabled: false
+    http_endpoint: http://proxy:3128/
+    https_endpoint: http://proxy:3128/
+    exclusions: "169.254.169.254"
+
+  docker:
+    local_registry:
+      enabled: false
+
+    # Authentication for private docker repositories
+    repositories:
+      - name: registry.com
+        username: test
+        password: test
+
+  # IP address to listen all exposed services on
+  listen_ip: 0.0.0.0
+
+  # Force update the machine config files even if they exist
+  force_update_configs: false
+
+# This section configures the KIND cluster
+cluster:
+  # Name of the cluster
+  name: test-cluster
+
+  networking:
+    # Set the subnet for docker network
+    # It will be "$ip_subnet.0/16"
+    ip_subnet: "172.20.0"
+
+  repositories:
+    insecure:
+      - https://ghcr.io
+      - https://registry.k8s.io
+      - https://quay.io
+
+    # Any repositories listed under.machine.docker.repositories are automatically added
+    private:
+      - name: registry.com
+        username: test
+        password: test
+
+    # Following registries are added to no_proxy list
+    no_proxy:
+      - test.io
+
+  kind:
+    networking:
+      apiServerPort: 55555
+      apiServerAddress: "0.0.0.0"
+      disableDefaultCNI: true
+      podSubnet: 192.168.0.0/16
+
+    nodes:
+      image: kindest/node:v1.25.9@sha256:c08d6c52820aa42e533b70bce0c2901183326d86dcdcbedecc9343681db45161
+
+      # List of worker nodes for KIND
+      workers:
+        - labels:
+            dedicated: components
+        - image: kindest/node:v1.25.9@sha256:c08d6c52820aa42e533b70bce0c2901183326d86dcdcbedecc9343681db45161
+          labels:
+            dedicated: components
+            test: components
+
+  kinst:
+    # Configure the kubernetes nodes for KINST
+    nodes:
+      image: kindest/node:v1.25.9@sha256:c08d6c52820aa42e533b70bce0c2901183326d86dcdcbedecc9343681db45161
+
+    # Configure the machines to use for KINST.
+    # Each machine must be accessible from where the scripts are running from to create docker swarm.
+    # Each machine must be initialized with core-machine module to ensure all dependencies are present.
+    # The first machine is always the manager machine.
+    # It is required to run KINST only from manager machine.
+    # The manager machine will contain the control-plane node
+    machines:
+      - name: manager
+        docker: 10.10.10.10:2375
+        nodes:
+          - name: set1-test1
+            labels:
+              dedicated: components
+              test: components
+      - name: worker1
+        docker: 10.10.10.11:2375
+        nodes:
+          - name: set2-test1
+
+# This section configures the ingress server
+ingress:
+  enabled: true
+
+  # Base domain to use for the cluster.
+  domain: "abc.xyz"
+
+  # Configure the following domains
+  domains:
+    - example.com
+
+  # Configure the certs location
+  certs:
+    # Automatically generate or fetch certificate based on the mode
+    # Following modes are supported
+    # - manual: Place the certs manually at the specified location.
+    # - s3: Download certs from AWS S3.
+    # - letsencrypt: Use letsencrypt to generate certificates
+    mode: manual
+
+    # For Manual mode, the paths must point to corresponding cert files
+    paths:
+      key: ./certs/key.pem
+      bundle: ./certs/cert-bundle.pem
+
+    # For S3 mode, the certs must be present as ZIP files with domain as the name
+    # eg: s3://automations/certs/abc.com.zip
+    # The ZIP must follow the following directory structure
+    # - abc.com
+    #   - cert.pem
+    #   - chain.pem
+    #   - fullchain.pem
+    #   - privkey.pem
+    s3:
+      path: s3://automations/certs/
+
+    # For letsencrypt mode, following configures the cert generation
+    letsencrypt:
+      email: "abc@abc.xyz"
+
+      # Challenge to use for domain verification
+      # Following values are supported
+      # - route53: Use AWS route53
+      challenge: "route53"
+
+# This section configures the dnsmasq server
+dns:
+  enabled: true
+
+  # Point the following domains to the cluster ingress
+  # .ingress.domain is automatically added
+  domains:
+    - example.com
+
+  # Automatically create route53 entries for the .ingress.domain
+  # Following values are supported
+  # - manual: Entry has to be done manually
+  # - route53: Create entry in Route53
+  record: manual
+
+  # Configure values for Route53
+  route53:
+    hosted_zone: DUMMY
+
+  # Disable the coredns patch
+  disable_coredns_patch: false
+
+# This section configures the installation process
+installation:
+  # Select the mode of installation. Following values are supported.
+  # - helmfile
+  mode: helmfile
+
+  # Configration for Helmfile installer
+  helmfile:
+    path: "./helmfile.yaml"
+    environment: default
+    value_files:

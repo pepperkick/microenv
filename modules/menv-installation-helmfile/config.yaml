@@ -1,0 +1,9 @@
+installation:
+  mode: helmfile
+
+  # Configration for Helmfile installer
+  helmfile:
+    path: "./helmfile.yaml"
+    environment: default
+    value_files:
+      - ./example.yaml

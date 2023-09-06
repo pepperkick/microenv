@@ -1,0 +1,169 @@
+# This section configures the machine
+machine:
+  ssh:
+    enabled: false
+
+  swap:
+    enabled: true
+    ## Size of the swapfile to create
+    ## $size * 1MB
+    size: "65536"
+
+  proxy:
+    # Enable this if the machine is running behind corp proxy
+    enabled: true
+    http_endpoint: http://proxy:3128/
+    https_endpoint: http://proxy:3128/
+    exclusions: "169.254.169.254"
+
+  docker:
+    local_registry:
+      enabled: false
+
+    # Authentication for private docker repositories
+    repositories:
+
+  # IP address to listen all exposed services on
+  listen_ip: 0.0.0.0
+
+  # Force update the machine config files even if they exist
+  force_update_configs: false
+
+# This section configures the KIND cluster
+cluster:
+  # Name of the cluster
+  name: test-cluster
+
+  networking:
+    # Set the subnet for docker network
+    # It will be "$ip_subnet.0/16"
+    ip_subnet: "172.20.0"
+
+  repositories:
+    insecure:
+      - https://ghcr.io
+      - https://registry.k8s.io
+      - https://quay.io
+      - https://xpkg.upbound.io
+
+    # Any repositories listed under.machine.docker.repositories are automatically added
+    private:
+
+    # Following registries are added to no_proxy list
+    no_proxy:
+      - xpkg.upbound.io
+
+  kind:
+    networking:
+      apiServerPort: 55555
+      apiServerAddress: "0.0.0.0"
+      disableDefaultCNI: true
+      podSubnet: 192.168.0.0/16
+
+    nodes:
+      image: kindest/node:v1.25.9@sha256:c08d6c52820aa42e533b70bce0c2901183326d86dcdcbedecc9343681db45161
+
+      # List of worker nodes
+      workers:
+        - labels:
+            dedicated: components
+        - labels:
+            dedicated: components
+
+# This section configures the ingress server
+ingress:
+  enabled: true
+
+  # Base domain to use for the cluster.
+  domain: "abc.xyz"
+
+  # Configure the following domains
+  domains:
+
+  # Configure the certs location
+  certs:
+    # Automatically generate or fetch certificate based on the mode
+    # Following modes are supported
+    # - manual: Place the certs manually at the specified location.
+    # - s3: Download certs from AWS S3.
+    # - letsencrypt: Use letsencrypt to generate certificates
+    mode: letsencrypt
+
+    # For Manual mode, the paths must point to corresponding cert files
+    paths:
+      key: ./certs/key.pem
+      bundle: ./certs/cert-bundle.pem
+
+    # For S3 mode, the certs must be present as ZIP files with domain as the name
+    # eg: s3://automations/certs/abc.com.zip
+    # The ZIP must follow the following directory structure
+    # - abc.com
+    #   - cert.pem
+    #   - chain.pem
+    #   - fullchain.pem
+    #   - privkey.pem
+    s3:
+      path: s3://automations/certs/
+
+    # For letsencrypt mode, following configures the cert generation
+    letsencrypt:
+      email: ""
+
+      # Challenge to use for domain verification
+      # Following values are supported
+      # - route53: Use AWS route53
+      challenge: "route53"
+
+# This section configures the dnsmasq server
+dns:
+  enabled: true
+
+  # Point the following domains to the cluster ingress
+  # .ingress.domain is automatically added
+  domains:
+
+  # Automatically create route53 entries for the .ingress.domain
+  # Following values are supported
+  # - manual: Entry has to be done manually
+  # - route53: Create entry in Route53
+  record: route53
+
+  # Configure values for Route53
+  route53:
+    hosted_zone: DUMMY
+
+  # Disable the coredns patch
+  disable_coredns_patch: false
+
+# This section configures the installation process
+installation:
+  # Select the mode of installation. Following values are supported.
+  # - helmfile
+  mode: helmfile
+
+  # Configration for Helmfile installer
+  helmfile:
+
+# This section configures nfs
+nfs:
+  # Which NFS server to use
+  # NFS and provisioner related variables in cluster_configuration.json will be changed based on selection
+  # Supported values
+  # - provisioner
+  #    Install nfs-server-provisioner helm chart inside the cluster and use that for NFS mounts.
+  #    NOTE: dynamic-pv will not work if this is used
+  #    Resource Cost: LOW, DISCONNECTED
+  # - hosted
+  #    Use hosted NFS server as the backend.
+  #    This will not deploy any additional resources.
+  #    Resource Cost: NONE, CONNECTED
+  # - docker
+  #    Use NFS server deployed in docker as the backend
+  #    This will deploy a docker container.
+  #    This will require dynamic-pv inside cluster to work.
+  #    Resource Cost: LOW, DISCONNECTED
+  # - localpath
+  #    Use localpath provisioner for mounting pvcs.
+  #    NOTE: dynamic-pv will not work if this is used, none of the NFS features will work
+  #    Resource Cost: NONE, DISCONNECTED
+  mode: docker

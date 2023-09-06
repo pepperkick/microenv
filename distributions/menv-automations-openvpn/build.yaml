@@ -1,0 +1,3 @@
+output: menv-automations-openvpn
+modules:
+  - automations-openvpn

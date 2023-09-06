@@ -1,0 +1,3 @@
+output: menv-automations-aws-kind
+modules:
+  - automations-aws-kind

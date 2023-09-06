@@ -1,0 +1,22 @@
+# Configure value for OpenVPN
+openvpn:
+  # SSH configuration for openvpn server instance
+  ssh:
+    host: "123.123.123.123"
+    port: "22"
+    key: "./server.key"
+    # Path to easyrsa folder in the server
+    easyrsa: "/home/ec2-user/easyrsa"
+
+  # ovpn servicer configuration
+  server:
+    host: "123.123.123.123"
+    port: 1194
+    protocol: udp
+
+  # Configuration for openvpn clients
+  clients:
+    # Number of days to expire client certs
+    expire: 30
+    routes:
+      - 10.10.10.0

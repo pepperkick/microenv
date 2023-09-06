@@ -1,0 +1,7 @@
+commands:
+  - name: openvpn-create-client
+    type: automation
+    script: ./scripts/automations-openvpn-create-client.sh
+    help: |-
+      openvpn-create-client [--client-name <name>]
+        Create a new OpenVPN client

@@ -1,0 +1,6 @@
+output: menv-kind-helmfile
+modules:
+  - assets-cluster
+  - core-machine
+  - cluster-kind
+  - installation-helmfile
