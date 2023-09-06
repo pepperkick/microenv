@@ -1,0 +1,3 @@
+installation:
+  # Select the mode of installation. Following values are supported.
+  mode: example

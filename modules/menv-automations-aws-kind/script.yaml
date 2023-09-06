@@ -1,0 +1,19 @@
+commands:
+  - name: aws-create
+    type: automation
+    script: ./scripts/automation-aws-kind-create.sh
+    help: |-
+      aws-create [--instance-name <name>]
+        Create a new KIND cluster using AWS
+  - name: aws-destroy
+    type: automation
+    script: ./scripts/automation-aws-kind-destroy.sh
+    help: |-
+      aws-destroy [--instance-name <name>]
+        Destroy an existing KIND cluster on AWS
+  - name: aws-setup
+    type: utility
+    script: ./scripts/automation-aws-kind-setup.sh
+    help: |-
+      aws-setup
+        Create all the prerequisites resources on AWS for setting up KIND clusters

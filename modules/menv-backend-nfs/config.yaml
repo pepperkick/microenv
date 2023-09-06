@@ -1,0 +1,25 @@
+# This section configures nfs
+nfs:
+  ## Which NFS server to use
+  ## NFS and provisioner related variables in cluster_configuration.json will be changed based on selection
+  ## Supported values
+  ## - provisioner
+  ##    Install nfs-server-provisioner helm chart inside the cluster and use that for NFS mounts.
+  ##    NOTE: dynamic-pv will not work if this is used
+  ##    Resource Cost: LOW, DISCONNECTED
+  ## - hosted
+  ##    Use hosted NFS server as the backend.
+  ##    Set up the NFS server IP and path in configs/cluster_configuration.json file.
+  ##    This will not deploy any additional resources.
+  ##    This will require dynamic-pv inside cluster to work.
+  ##    Resource Cost: NONE, CONNECTED
+  ## - docker
+  ##    Use NFS server deployed in docker as the backend
+  ##    This will deploy a docker container.
+  ##    This will require dynamic-pv inside cluster to work.
+  ##    Resource Cost: LOW, DISCONNECTED
+  ## - localpath
+  ##    Use localpath provisioner for mounting pvcs.
+  ##    NOTE: dynamic-pv will not work if this is used, none of the NFS features will work
+  ##    Resource Cost: NONE, DISCONNECTED
+  mode: docker

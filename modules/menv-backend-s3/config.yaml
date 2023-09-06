@@ -1,0 +1,21 @@
+# This section configures s3
+s3:
+  ## Which S3 backend to use
+  ## S3 related variables in cluster_configuration.json will be changed based on selection
+  ## Supported values:
+  ## - localstack:
+  ##    Use localstack as the backend.
+  ##    This will deploy the localstack helm chart in the cluster.
+  ##    Ideal for local testing.
+  ##    Resource Cost: LOW, DISCONNECTED
+  ##    WARNING: S3 data will not have any persistence, any restart on laptop, node or pod will require the entire cluster to be recreated.
+  ## - hosted
+  ##    Use hosted AWS S3 bucket as the backend.
+  ##    This will not deploy any additional resources.
+  ##    Resource Cost: NONE, CONNECTED
+  ## - rook-block:
+  ##    Use rook as the backend by creating emulated block disks.
+  ##    Allows usage of all S3 features with local persistence.
+  ##    Resource Cost: HIGH, DISCONNECTED
+  ##    WARNING: rook-block is experimental
+  mode: hosted

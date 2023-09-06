@@ -1,0 +1,13 @@
+commands:
+  - name: create
+    type: main
+    script: ./scripts/create.sh
+    help: |-
+      create [--delete-cluster]
+        Create a new KIND cluster using AWS
+  - name: destroy
+    type: main
+    script: ./scripts/destroy.sh
+    help: |-
+      destroy
+        Destroy the cluster and its resources

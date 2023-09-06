@@ -1,0 +1,40 @@
+cluster:
+  # Name of the cluster
+  name: test-cluster
+
+  networking:
+    # Set the subnet for docker network
+    # It will be "$ip_subnet.0/16"
+    ip_subnet: "172.20.0"
+
+  repositories:
+    insecure:
+      - https://ghcr.io
+      - https://registry.k8s.io
+      - https://quay.io
+
+    # Any repositories listed under.machine.docker.repositories are automatically added
+    private:
+      - name: registry.com
+        username: test
+        password: test
+
+  kind:
+    networking:
+      apiServerPort: 55555
+      apiServerAddress: "0.0.0.0"
+      disableDefaultCNI: true
+      podSubnet: 192.168.0.0/16
+
+    nodes:
+      image: kindest/node:v1.25.9@sha256:c08d6c52820aa42e533b70bce0c2901183326d86dcdcbedecc9343681db45161
+
+      # List of worker nodes
+      # dedicated is used as label
+      # image is used for overriding node image
+      # Currently only 1 label per node is supported
+      workers:
+        - dedicated: test
+        - dedicated: test
+        - dedicated: test
+          image: kindest/node:v1.25.9@sha256:c08d6c52820aa42e533b70bce0c2901183326d86dcdcbedecc9343681db45161
