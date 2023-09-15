@@ -1,0 +1,18 @@
+name: Distribution Builds
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: chmod +x ./build.sh && ./build.sh -d kind-helmfile
+      - uses: actions/upload-artifact@v3
+        with:
+          name: menv-kind-helmfile
+          path: ./menv-kind-helmfile.zip
