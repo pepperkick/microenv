@@ -19,23 +19,18 @@ fi
 TF_PATH="./scripts/assets/aws-resources"
 cp "$MICRO_ENV_CONFIG_FILE" "$TF_PATH"
 
-terraform -chdir="$TF_PATH" init
+TF_BACKEND_REGION=$(readConfig ".aws.region" "us-west-2")
+TF_BACKEND_BUCKET=$(readConfig ".terraform.s3_backend.bucket" "automations")
+TF_BACKEND_PATH=$(readConfig ".terraform.s3_backend.path" "build/microenv/terraform/states")
+TF_BACKEND_KEY="${TF_BACKEND_PATH}/deployment.tfstate"
 
-# Terraform is stateful, so import the required resources if they exist
-echo ""
-echo "Importing existing resources if available..."
-AWS_EC2_SG_NAME=$(readConfig ".aws.resources.ec2_security_group.name" "microenv-security-group")
-AWS_EC2_SG_ID=$(aws ec2 describe-security-groups --filter "Name='group-name',Values=['$AWS_EC2_SG_NAME']" | jq -r ".SecurityGroups[0].GroupId")
-if [[ "$AWS_EC2_SG_ID" != "null" ]]; then
-  terraform -chdir="$TF_PATH" import aws_security_group.main "$AWS_EC2_SG_ID"
-fi
+echo "bucket = \"${TF_BACKEND_BUCKET}\"" > "$TF_PATH/backend.tfvars"
+echo "key = \"${TF_BACKEND_KEY}\"" >> "$TF_PATH/backend.tfvars"
+echo "region = \"${TF_BACKEND_REGION}\"" >> "$TF_PATH/backend.tfvars"
 
-AWS_EC2_LT_NAME=$(readConfig ".aws.resources.ec2_launch_template.name" "microenv-launcher")
-AWS_EC2_LT_ID=$(aws ec2 describe-launch-templates --launch-template-names $AWS_EC2_LT_NAME | jq -r ".LaunchTemplates[0].LaunchTemplateId")
-if [[ "$AWS_EC2_LT_ID" != "null" ]]; then
-  terraform -chdir="$TF_PATH" import aws_launch_template.main "$AWS_EC2_LT_ID"
-fi
+terraform -chdir="$TF_PATH" init -backend-config backend.
 
+echo "Planning..."
 terraform -chdir="$TF_PATH" plan -out=./plan.out
 
 if [ -t 0 ]; then

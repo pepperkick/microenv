@@ -78,8 +78,10 @@ function setupSystem() {
     mv ./dasel /usr/bin/dasel
   fi
 
-  sed -i "s/SELINUX=.*/SELINUX=disabled/g" /etc/sysconfig/selinux
-  setenforce 0 || true
+  if [[ -f "/etc/sysconfig/selinux" ]]; then
+    sed -i "s/SELINUX=.*/SELINUX=disabled/g" /etc/sysconfig/selinux
+    setenforce 0 || true
+  fi
 
   if which yum; then
     yum install --nogpgcheck -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin \
@@ -126,13 +128,17 @@ EOF
     fi
   fi
 
-  sed -i "s,ExecStart=/usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock,ExecStart=/usr/bin/dockerd -H tcp://0.0.0.0:2375 -H fd:// --containerd=/run/containerd/containerd.sock,g" "/usr/lib/systemd/system/docker.service"
+  if [[ -f "/usr/lib/systemd/system/docker.service" ]]; then
+    sed -i "s,ExecStart=/usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock,ExecStart=/usr/bin/dockerd -H tcp://0.0.0.0:2375 -H fd:// --containerd=/run/containerd/containerd.sock,g" "/usr/lib/systemd/system/docker.service"
+  fi
 
   # Setup services
-  systemctl daemon-reload
-  if [[ "$RESTART_DOCKER" == 1 ]]; then
-    service docker stop || true
-    service docker start
+  if which systemctl; then
+    systemctl daemon-reload
+    if [[ "$RESTART_DOCKER" == 1 ]]; then
+      service docker stop || true
+      service docker start
+    fi
   fi
 }
 

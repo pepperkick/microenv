@@ -1,2 +1,3 @@
 build:
-	@./build.sh --config ./build.yaml
+	@chmod +x ./build.sh
+	@./build.sh -A

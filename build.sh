@@ -2,10 +2,90 @@
 
 set -e
 
+function handleBuild() {
+  config="$1"
+  extra_contents="$2"
+  echo "Handling build for config '$config' ($extra_contents)"
+
+  if [[ -z "$config" ]]; then
+    echo "Config file '$config' not found."
+    exit 1
+  else
+    echo "Using config file '$config'"
+  fi
+
+  rm -rf .tmp || true
+
+  mkdir -p ./.tmp
+  mkdir -p ./.tmp/scripts
+
+  echo "commands:" > ./.tmp/script.yaml
+
+  if [[ -d "./modules/menv-core" ]]; then
+    copyLocalModule core
+  else
+    copyGitModule "https://github.com/pepperkick/microenv.git" "main" "modules/menv-core"
+  fi
+
+  # Read modules from build.yaml
+  length=$(yq -oy ".modules | length - 1" "$config")
+  if [[ "$length" -ge "0" ]]; then
+    for index in `seq 0 $length`; do
+      # Check if it has git url
+      git=$(yq -oy ".modules[$index].git" "$config")
+      if [[ -z "$git" ]]; then
+        module=$(yq -oy ".modules[$index]" "$config")
+        copyLocalModule "$module"
+      else
+        branch=$(yq -oy ".modules[$index].branch" "$config")
+        proxy=$(yq -oy ".modules[$index].proxy" "$config")
+
+        if [[ "$branch" == "null" ]]; then
+          branch="main"
+        fi
+
+        if [[ "$proxy" != "null" ]]; then
+          export VAR_GIT_PROXY="$proxy"
+        fi
+
+        pathsLength=$(yq -oy ".modules[$index].paths | length - 1" "$config")
+        declare -a modulePaths=()
+        for pathIndex in `seq 0 $pathsLength`; do
+          module=$(yq -oy ".modules[$index].paths[$pathIndex]" "$config")
+          modulePaths+=($module)
+        done
+
+        copyGitModule "$git" "$branch" "${modulePaths[@]}"
+        unset VAR_GIT_PROXY
+      fi
+    done
+  fi
+
+  if [[ -f "./modules/menv.sh" ]]; then
+    cp "./modules/menv.sh" "./.tmp"
+  else
+    curl -Lo "./.tmp/menv.sh" "https://raw.githubusercontent.com/pepperkick/microenv/main/modules/menv.sh"
+  fi
+
+  if [[ ! -z "$extra_contents" ]]; then
+    cp -r "$extra_contents"* "./.tmp"
+    rm "./.tmp/build.yaml" || true
+  fi
+
+  name=$(yq -oy ".output" "$config")
+  if [[ -z "$name" ]] || [[ "$name" == "null" ]]; then
+    name="menv"
+  fi
+
+  cd .tmp && zip "$name.zip" -r * && mv "$name.zip" ../ && cd ../
+}
+
 function copyModule() {
   module="$1"
   path="$2"
-  echo "$2"
+
+  echo "Copying module $1..."
+
   if [[ ! -d "$path" ]]; then
     echo "ERROR: Module ${module} does not exist at ${path}"
     exit 1
@@ -37,8 +117,13 @@ function copyGitModule() {
     branch="main"
   fi
 
+  if [[ ! -z "$VAR_GIT_PROXY" ]]; then
+    export HTTP_PROXY="$VAR_GIT_PROXY"
+    export HTTPS_PROXY="$VAR_GIT_PROXY"
+  fi
+
   pwd=$PWD
-  git clone --depth=1 --no-checkout "$repo" ".tmp/git"
+  git clone --depth=1 --no-checkout --branch "$branch" "$repo" ".tmp/git"
   cd ".tmp/git"
   git sparse-checkout init
   git sparse-checkout set "${paths[@]}"
@@ -51,11 +136,13 @@ function copyGitModule() {
   done
 
   rm -rf ".tmp/git"
+  unset HTTP_PROXY
+  unset HTTPS_PROXY
 }
 
 # Ensure yq is present
 if which yq; then
-  yq --version
+  yq --version > /dev/null
 else
   curl -Lo ./yq https://github.com/mikefarah/yq/releases/download/v4.35.1/yq_linux_amd64
   chmod +x ./yq
@@ -63,6 +150,12 @@ else
     echo "Cannot move yq to common location, updating PATH variable instead."
     PATH="$PATH:$PWD"
   fi
+fi
+
+if which zip; then
+  zip --version > /dev/null
+else
+  yum install -y zip
 fi
 
 # Read args
@@ -79,74 +172,20 @@ while [[ $# -gt 0 ]]; do
       shift
       shift
       ;;
+    -A|--all-distributions)
+      ALL_DISTRIBUTIONS=true
+      shift
+      ;;
     *)
       shift 1
       ;;
   esac
 done
 
-if [[ -z "$MICRO_ENV_BUILD_FILE" ]]; then
-  echo "Config file $MICRO_ENV_BUILD_FILE not found."
-  exit 1
-else
-  echo "Using config file '$MICRO_ENV_BUILD_FILE'"
-fi
-
-rm -rf .tmp || true
-
-mkdir -p ./.tmp
-mkdir -p ./.tmp/scripts
-
-echo "commands:" > ./.tmp/script.yaml
-
-if [[ -d "./modules/menv-core" ]]; then
-  copyLocalModule core
-else
-  copyGitModule "https://github.com/pepperkick/microenv.git" "main" "modules/menv-core"
-fi
-
-# Read modules from build.yaml
-length=$(yq -oy ".modules | length - 1" "$MICRO_ENV_BUILD_FILE")
-if [[ "$length" -ge "0" ]]; then
-  for index in `seq 0 $length`; do
-    # Check if it has git url
-    git=$(yq -oy ".modules[$index].git" "$MICRO_ENV_BUILD_FILE")
-    if [[ -z "$git" ]]; then
-      module=$(yq -oy ".modules[$index]" "$MICRO_ENV_BUILD_FILE")
-      copyLocalModule "$module"
-    else
-      branch=$(yq -oy ".modules[$index].branch" "$MICRO_ENV_BUILD_FILE")
-      if [[ "$branch" == "null" ]]; then
-        branch="main"
-      fi
-
-      pathsLength=$(yq -oy ".modules[$index].paths | length - 1" "$MICRO_ENV_BUILD_FILE")
-      declare -a modulePaths=()
-      for pathIndex in `seq 0 $pathsLength`; do
-        module=$(yq -oy ".modules[$index].paths[$pathIndex]" "$MICRO_ENV_BUILD_FILE")
-        modulePaths+=($module)
-      done
-
-      copyGitModule "$git" "$branch" "${modulePaths[@]}"
-    fi
+if [[ "$ALL_DISTRIBUTIONS" == "true" ]]; then
+  for d in "./distributions/"*; do
+   handleBuild "$d/build.yaml" "$d"
   done
-fi
-
-if [[ -f "./modules/menv.sh" ]]; then
-  cp "./modules/menv.sh" "./.tmp"
 else
-  curl -Lo "./.tmp/menv.sh" "https://raw.githubusercontent.com/pepperkick/microenv/main/modules/menv.sh"
+  handleBuild "$MICRO_ENV_BUILD_FILE" "$DISTRIBUTION_PATH"
 fi
-
-if [[ ! -z "$DISTRIBUTION_PATH" ]]; then
-  cp "$DISTRIBUTION_PATH"* "./.tmp"
-  rm "./.tmp/build.yaml" || true
-fi
-
-name=$(yq -oy ".output" "$MICRO_ENV_BUILD_FILE")
-if [[ -z "$name" ]] || [[ "$name" == "null" ]]; then
-  name="menv"
-fi
-cd .tmp && zip "$name.zip" -r * && mv "$name.zip" ../
-
-

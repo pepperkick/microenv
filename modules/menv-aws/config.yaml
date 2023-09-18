@@ -35,3 +35,4 @@ dns:
   # Configure values for Route53
   route53:
     hosted_zone: DUMMY
+    use_public_ip: false

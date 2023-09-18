@@ -1,5 +1,11 @@
 function setupEc2Ssm() {
-  dnf install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
+  if which dnf; then
+    dnf install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
+  elif which yum; then
+    yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
+  else
+    echo "No supported package manager found, skipping aws ssm install."
+  fi
 }
 
 function setEc2MetadataHop() {

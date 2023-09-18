@@ -3,7 +3,12 @@
 function setupRoute53Dns() {
   echo "Creating DNS entry for $DEPLOYMENT_ZONE in Route53..."
 
-  IP_ADDRESS=$(curl http://169.254.169.254/latest/meta-data/public-ipv4)
+  usePublicIp=$(readConfig ".dns.route53.use_public_ip", "false")
+  if [[ "$usePublicIp" == "true" ]]; then
+    IP_ADDRESS=$(curl http://169.254.169.254/latest/meta-data/public-ipv4)
+  else
+    IP_ADDRESS=$(curl http://169.254.169.254/latest/meta-data/local-ipv4)
+  fi
   hostedZone=$(readConfig ".dns.route53.hosted_zone")
 
   if [[ -z "$hostedZone" ]]; then

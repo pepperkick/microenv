@@ -47,26 +47,24 @@ aws:
 
 
   snapshot:
-    name: kind-snapshot
+    name: dmp-kind-snapshot
     infra:
-      iam_role: "microenv-role"
-      # Security Group ID
-      security_group: ""
-      # Subnet ID
-      subnet: ""
+      iam_role: "dmp-kind-instance-role"
+      security_group: "sg-05374b99bdd13b961"
+      subnet: "subnet-0b2a629aee4edc07c"
       instance_types:
         - m5.2xlarge
-      logs_bucket: "automations"
+      logs_bucket: "onprem-automations"
       logs_prefix: "build/microenv/snapshot/logs"
     recipe:
-      base_image_owner: ""
-      base_image_id: ""
+      base_image_owner: "031087784557"
+      base_image_id: "ami-0c05b7e2855657f6b"
       storage_size: 150
     component:
-      bucket: "automations"
+      bucket: "onprem-automations"
       prefix: "resources/microenv/snapshot/configs"
-      domain: "abc.xyz"
-      build_file: kind
-      config_file: kind
+      domain: "builder.kind.onprem.dmsuitecloud.com"
+      build_file: dmp-kind
+      config_file: dmp-kind
     distribution:
-      launch_template: ""
+      launch_template: "lt-0ff30f90cc0f2073f"

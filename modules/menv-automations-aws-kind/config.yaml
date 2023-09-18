@@ -1,3 +1,9 @@
+# Configure values for terraform
+terraform:
+  s3_backend:
+    bucket: automations
+    path: "build/microenv/terraform/states"
+
 # Configure value for AWS
 aws:
   region: us-west-2
@@ -47,6 +53,7 @@ aws:
 
   snapshot:
     name: kind-snapshot
+    version: 1.0.0
     infra:
       iam_role: "microenv-role"
       # Security Group ID
@@ -65,7 +72,6 @@ aws:
       bucket: "automations"
       prefix: "resources/microenv/snapshot/configs"
       domain: "abc.xyz"
+      email: "test@test.com"
       build_file: kind
       config_file: kind
-    distribution:
-      launch_template: ""

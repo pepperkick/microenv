@@ -57,10 +57,14 @@ resource "aws_launch_template" "main" {
       volume_size = lookup(local.r_ec2_launch_template, "storage_size", 150)
       volume_type = "gp3"
       snapshot_id = data.aws_ami.image.root_snapshot_id
+      iops        = "3000"
+      encrypted   = false
     }
   }
 
   network_interfaces {
+    # TODO: Make this false
+    # AWS SSM does not work if this is false
     associate_public_ip_address = true
     delete_on_termination = true
     security_groups  = [aws_security_group.main.id]

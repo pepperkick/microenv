@@ -8,7 +8,7 @@ function validateAwsCli() {
   if which aws; then
     aws --version
   else
-    echo "ERROR: AWS CLI is required to fetch certs with 's3' mode"
+    echo "ERROR: AWS CLI is required fow aws module"
     exit 1
   fi
 }

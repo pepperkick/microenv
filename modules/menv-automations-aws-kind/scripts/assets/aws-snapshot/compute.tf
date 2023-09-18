@@ -36,7 +36,7 @@ resource "aws_imagebuilder_infrastructure_configuration" "main" {
   instance_types                = local.r_infra_instance_types
   security_group_ids            = [data.aws_security_group.selected.id]
   subnet_id                     = data.aws_subnet.selected.id
-  terminate_instance_on_failure = true
+  terminate_instance_on_failure = false
 
   logging {
     s3_logs {
@@ -47,9 +47,9 @@ resource "aws_imagebuilder_infrastructure_configuration" "main" {
 }
 
 resource "aws_imagebuilder_image_recipe" "main" {
-  name         = "microenv-${local.snapshot}-image-recipe"
-  parent_image = data.aws_ami.image.arn
-  version      = "1.0.0"
+  name         = "microenv-${local.snapshot}"
+  parent_image = data.aws_ami.image.id
+  version      = local.version
 
   block_device_mapping {
     device_name = data.aws_ami.image.root_device_name
@@ -58,11 +58,13 @@ resource "aws_imagebuilder_image_recipe" "main" {
       delete_on_termination = true
       volume_size           = lookup(local.r_recipe, "storage_size", 150)
       volume_type           = "gp3"
+      iops                  = "3000"
+      encrypted             = false
     }
   }
 
   component {
-    component_arn = aws_imagebuilder_component.main-build.arn
+    component_arn = aws_imagebuilder_component.main_build.arn
 
     parameter {
       name  = "Domain"
@@ -81,16 +83,22 @@ resource "aws_imagebuilder_image_recipe" "main" {
   }
 }
 
-resource "aws_imagebuilder_component" "main-build" {
+resource "aws_imagebuilder_component" "main_build" {
   name     = "microenv-${local.snapshot}-build-component"
   platform = "Linux"
-  version  = "1.0.0"
+  version  = local.version
   data = yamlencode({
+    schemaVersion = 1.0
     parameters = [{
       Domain = {
         type = "string"
         default = lookup(local.r_component, "domain", "abc.xyz")
         description = "The domain to use for the instance"
+      }
+      Email = {
+        type = "string"
+        default = lookup(local.r_component, "email", "test@test.com")
+        description = "The email to use for certificates"
       }
       Build = {
         type = "string"
@@ -105,17 +113,20 @@ resource "aws_imagebuilder_component" "main-build" {
     }]
     phases = [{
       name = "build"
-      schemaVersion = 1.0
       steps = [{
         name   = "FetchConfigs"
         action = "S3Download"
         inputs = [{
-          source = "s3://${lookup(local.r_component, "bucket", "automations")}/${lookup(local.r_component, "prefix", "resources/microenv/snapshot/configs")}/build.{{ Build }}.yaml"
+          source = "s3://${lookup(local.r_component, "bucket", "automations")}/${lookup(local.r_component, "prefix", "resources/microenv/snapshot/configs")}/build.{{Build}}.yaml"
           destination = "/home/ec2-user/microenv/build.yaml"
           overwrite = true
         }, {
-          source = "s3://${lookup(local.r_component, "bucket", "automations")}/${lookup(local.r_component, "prefix", "resources/microenv/snapshot/configs")}/config.{{ Config }}.yaml"
+          source = "s3://${lookup(local.r_component, "bucket", "automations")}/${lookup(local.r_component, "prefix", "resources/microenv/snapshot/configs")}/config.{{Config}}.yaml"
           destination = "/home/ec2-user/microenv/config.yaml"
+          overwrite = true
+        }, {
+          source = "s3://${lookup(local.r_component, "bucket", "automations")}/${lookup(local.r_component, "prefix", "resources/microenv/snapshot/configs")}/patch.{{Config}}.sh"
+          destination = "/home/ec2-user/microenv/patch.sh"
           overwrite = true
         }]
       }, {
@@ -124,13 +135,21 @@ resource "aws_imagebuilder_component" "main-build" {
         inputs = {
           commands = [
             <<EOF
-            cd /home/ec2-user/microenv
-            curl -Lo ./build.sh https://raw.githubusercontent.com/pepperkick/microenv/main/build.sh
-            chmod +x ./build.sh
-            ./build.sh -c ./build.yaml
-            unzip ./menv.zip
-            ./menv.sh create --config ./config.yaml
-            EOF
+set -e
+exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
+export INSTANCE_DOMAIN="{{Domain}}"
+export INSTANCE_EMAIL="{{Email}}"
+mkdir -p /home/ec2-user/microenv
+cd /home/ec2-user/microenv
+curl -Lo ./build.sh https://raw.githubusercontent.com/pepperkick/microenv/main/build.sh
+chmod +x ./build.sh
+./build.sh -c ./build.yaml
+unzip ./menv.zip
+chmod +x ./patch.sh
+./patch.sh --config ./config.yaml
+chmod +x ./menv.sh
+./menv.sh create --config ./config.yaml
+EOF
           ]
         }
       }]
@@ -145,8 +164,57 @@ resource "aws_imagebuilder_distribution_configuration" "main" {
     region = lookup(local.aws, "region", "us-west-2")
 
     launch_template_configuration {
-      launch_template_id = lookup(local.r_distribution, "launch_template", "")
+      launch_template_id = aws_launch_template.main.id
       default = true
+    }
+  }
+}
+
+resource "aws_launch_template" "main" {
+  name = "microenv-${local.snapshot}-launcher"
+  instance_type = local.r_infra_instance_types[0]
+  image_id = data.aws_ami.image.id
+  instance_initiated_shutdown_behavior = "terminate"
+  vpc_security_group_ids = [data.aws_security_group.selected.id]
+
+  block_device_mappings {
+    device_name = data.aws_ami.image.root_device_name
+    ebs {
+      delete_on_termination = true
+      volume_size = lookup(local.r_recipe, "storage_size", 150)
+      volume_type = "gp3"
+      snapshot_id = data.aws_ami.image.root_snapshot_id
+      iops        = "3000"
+      encrypted   = false
+    }
+  }
+
+  network_interfaces {
+    # TODO: Make this false
+    # AWS SSM does not work if this is false
+    associate_public_ip_address = true
+    delete_on_termination = true
+    security_groups  = [data.aws_security_group.selected.id]
+    subnet_id = data.aws_subnet.selected.id
+  }
+
+  iam_instance_profile {
+    arn = data.aws_iam_instance_profile.selected.arn
+  }
+
+  tag_specifications {
+    resource_type = "instance"
+    tags = {
+      microenv = "true"
+      microenv-snapshot = local.snapshot
+    }
+  }
+
+  tag_specifications {
+    resource_type = "volume"
+    tags = {
+      microenv = "true"
+      microenv-snapshot = local.snapshot
     }
   }
 }
