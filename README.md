@@ -1,6 +1,7 @@
 # MicroEnv
 
-Handles all operations related to MicroEnvs (menv).
+Create smaller and disposable Kubernetes clusters meant for developing, testing, automating and experimenting.
+Build from the group up to be modular and flexible to handle different setups.
 
 ## Concepts
 

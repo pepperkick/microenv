@@ -15,6 +15,7 @@ function parseEventArg() {
 function eventStage() {
   pids=""
   event emit pre$1
+  event emit init$1
   event emit on$1
   event emit post$1
   wait $pids

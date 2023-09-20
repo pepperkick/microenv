@@ -4,6 +4,11 @@ INGRESS_CONFIG_FILE="./configs/nginx.conf"
 
 declare -a NGINX_INGRESS_HTTP_SERVER_CONFIGS
 
+function initIngressServer() {
+  export DEPLOYMENT_ZONE=$(readConfig ".ingress.domain" "abc.xyz")
+  export INGRESS_CONTAINER_NAME="$CLUSTER_NAME-ingress"
+}
+
 function deployIngressServer() {
   echo ""
   echo "================= DEPLOYING INGRESS SERVER ================="
@@ -99,4 +104,5 @@ EOF
 )"
 }
 
+event on onStartup initIngressServer
 event on onClusterDependencies deployIngressServer

@@ -15,14 +15,20 @@ aws:
       bucket: automations
       path: "build/logs"
 
-  build:
-    bucket: automations
-    path: "build/microenv/packages"
-
   menv:
-    bucket: automations
-    path: "build/microenv/distributions"
-    distribution: "menv-kind-helmfile"
+    # Either s3 or (build and config) needs to be provided
+    s3:
+      build: "s3://automations/build/microenv/distributions/menv-kind-helmfile.zip"
+      config: "s3://automations/build/microenv/distributions/menv-kind-helmfile.zip"
+    config: "file://./scripts/assets/placeholder-menv-config.yaml"
+    build:
+      modules:
+      - git: https://github.com/pepperkick/microenv.git
+        paths:
+          - modules/menv-assets-cluster
+          - modules/menv-core-machine
+          - modules/menv-cluster-kind
+          - modules/menv-installation-helmfile
 
   # Configure the AWS resources that will be created.
   # If a value is empty then the script will try to autofill it.

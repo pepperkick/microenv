@@ -64,7 +64,14 @@ function handleBuild() {
   if [[ -f "./modules/menv.sh" ]]; then
     cp "./modules/menv.sh" "./.tmp"
   else
-    curl -Lo "./.tmp/menv.sh" "https://raw.githubusercontent.com/pepperkick/microenv/main/modules/menv.sh"
+    git clone --depth=1 --no-checkout --branch "main" "https://github.com/pepperkick/microenv.git" ".tmp/git"
+    cd ".tmp/git"
+    git sparse-checkout init
+    git sparse-checkout set "modules/menv.sh"
+    git checkout "main"
+    cd "$pwd"
+    cp ".tmp/git/modules/menv.sh" "./.tmp/menv.sh"
+    rm -rf ".tmp/git"
   fi
 
   if [[ ! -z "$extra_contents" ]]; then
@@ -184,7 +191,7 @@ done
 
 if [[ "$ALL_DISTRIBUTIONS" == "true" ]]; then
   for d in "./distributions/"*; do
-   handleBuild "$d/build.yaml" "$d"
+   handleBuild "$d/build.yaml" "$d/"
   done
 else
   handleBuild "$MICRO_ENV_BUILD_FILE" "$DISTRIBUTION_PATH"

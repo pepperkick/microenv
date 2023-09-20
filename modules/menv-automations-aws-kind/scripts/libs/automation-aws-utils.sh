@@ -10,6 +10,10 @@ while [[ $# -gt 0 ]]; do
       shift
       shift
       ;;
+    --spot-instance)
+      USE_SPOT_INSTANCE="true"
+      shift
+      ;;
     *)
       shift
       ;;

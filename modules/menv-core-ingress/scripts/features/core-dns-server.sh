@@ -3,6 +3,11 @@
 DNSMASQ_CONFIG_FILE="./configs/dnsmasq.conf"
 COREDNS_CONFIG_FILE="./configs/coredns.yaml"
 
+function initDnsServer() {
+  export DEPLOYMENT_ZONE=$(readConfig ".ingress.domain" "abc.xyz")
+  export DNS_CONTAINER_NAME="$CLUSTER_NAME-dnsmasq"
+}
+
 function deployDnsServer() {
   if [[ "$(readConfig ".dns.enabled" "true")" == "false" ]]; then
     return
@@ -118,5 +123,6 @@ EOF
   fi
 }
 
+event on onStartup initDnsServer
 event on onClusterDependencies deployDnsServer
 event on onConfig configureCoreDns

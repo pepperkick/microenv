@@ -11,8 +11,10 @@ function s3PathResolver() {
     path="$file"
     if aws s3 cp "$1" "$path"; then
       export OUTPUT_RESOLVED_PATH="$path"
+      return 0
     else
       export OUTPUT_RESOLVED_PATH=""
+      return 1
     fi
 }
 

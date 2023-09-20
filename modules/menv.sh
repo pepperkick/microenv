@@ -13,6 +13,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --debug)
       set -x
+      DEBUG_ENABLED=true
       shift
       ;;
     *)
@@ -22,8 +23,12 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$MICRO_ENV_CONFIG_FILE" ]]; then
-  if [[ -f "./config.yaml" ]]; then
+  if [[ -f "./config.final.yaml" ]]; then
+    MICRO_ENV_CONFIG_FILE="./config.final.yaml"
+  elif [[ -f "./config.yaml" ]]; then
     MICRO_ENV_CONFIG_FILE="./config.yaml"
+  elif [[ -f "./config.tmpl.yaml" ]]; then
+    MICRO_ENV_CONFIG_FILE="./config.tmpl.yaml"
   fi
 fi
 

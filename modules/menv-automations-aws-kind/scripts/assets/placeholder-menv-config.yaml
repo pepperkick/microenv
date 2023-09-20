@@ -75,7 +75,7 @@ ingress:
   enabled: true
 
   # Base domain to use for the cluster.
-  domain: "abc.xyz"
+  domain: "env://INSTANCE_DOMAIN"
 
   # Configure the following domains
   domains:
@@ -107,7 +107,7 @@ ingress:
 
     # For letsencrypt mode, following configures the cert generation
     letsencrypt:
-      email: ""
+      email: "env://INSTANCE_EMAIL"
 
       # Challenge to use for domain verification
       # Following values are supported

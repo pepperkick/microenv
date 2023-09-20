@@ -2,7 +2,11 @@
 
 CLUSTER_CONFIG_FILE="./configs/cluster.yaml"
 
-function deleteOldCluster() {
+function initKindCluster() {
+  export DEPLOYMENT_ZONE=$(readConfig ".ingress.domain" "abc.xyz")
+}
+
+function deleteOldKindCluster() {
   echo ""
   echo "================= CREATING CLUSTER ================="
 
@@ -13,7 +17,7 @@ function deleteOldCluster() {
   fi
 }
 
-function createCluster() {
+function createKindCluster() {
   if cat $CLUSTER_CONFIG_FILE | grep "0.0.0.0"; then
     export LISTEN_IP="0.0.0.0"
   fi
@@ -81,7 +85,7 @@ EOF
   fi
 }
 
-function deployDependenciesCluster() {
+function deployDependenciesKindCluster() {
   echo ""
   echo "================= INSTALLING DEPENDENCIES ================="
 
@@ -100,10 +104,11 @@ function checkDockerNetwork() {
   docker network create --driver bridge --subnet "$IP_SUBNET.0/16" "kind"
 }
 
+event on onStartup initKindCluster
 event on preSetup checkDockerNetwork
-event on preClusterCreation deleteOldCluster
-event on onClusterCreation createCluster
-event on onClusterDependencies deployDependenciesCluster
+event on preClusterCreation deleteOldKindCluster
+event on onClusterCreation createKindCluster
+event on onClusterDependencies deployDependenciesKindCluster
 
 # Read arguments
 while [[ $# -gt 0 ]]; do

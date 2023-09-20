@@ -9,12 +9,15 @@ function readConfig() {
     if [[ -n "$2" ]]; then
       echo "$2"
     else
-      echo "null"
+      echo ""
     fi
     return
   fi
 
-  echo "$result"
+  if ! resolveValue "$result"; then
+    echo "ERROR: Failed to resolve value '$result'" >&2
+    exit 1
+  fi
 }
 
 function readArrayLength() {

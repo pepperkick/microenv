@@ -1,6 +1,7 @@
 #!/bin/bash
 
 NFS_BACKEND=$(readConfig ".nfs.mode" "docker")
+NFS_CONTAINER_NAME="$CLUSTER_NAME-nfs"
 
 function deployBackendNfs() {
   if [[ $NFS_BACKEND != "docker" ]]; then

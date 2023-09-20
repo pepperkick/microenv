@@ -124,10 +124,6 @@ resource "aws_imagebuilder_component" "main_build" {
           source = "s3://${lookup(local.r_component, "bucket", "automations")}/${lookup(local.r_component, "prefix", "resources/microenv/snapshot/configs")}/config.{{Config}}.yaml"
           destination = "/home/ec2-user/microenv/config.yaml"
           overwrite = true
-        }, {
-          source = "s3://${lookup(local.r_component, "bucket", "automations")}/${lookup(local.r_component, "prefix", "resources/microenv/snapshot/configs")}/patch.{{Config}}.sh"
-          destination = "/home/ec2-user/microenv/patch.sh"
-          overwrite = true
         }]
       }, {
         name   = "Execute"
@@ -145,8 +141,6 @@ curl -Lo ./build.sh https://raw.githubusercontent.com/pepperkick/microenv/main/b
 chmod +x ./build.sh
 ./build.sh -c ./build.yaml
 unzip ./menv.zip
-chmod +x ./patch.sh
-./patch.sh --config ./config.yaml
 chmod +x ./menv.sh
 ./menv.sh create --config ./config.yaml
 EOF

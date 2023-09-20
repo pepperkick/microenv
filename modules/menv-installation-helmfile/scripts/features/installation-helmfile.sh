@@ -33,7 +33,13 @@ function startHelmfileInstallation() {
   length=$(readArrayLength ".installation.helmfile.value_files")
   if [[ "$length" -gt "0" ]]; then
     path=$(readConfig ".installation.helmfile.value_files[$index]")
-    cmd=$(echo "$cmd --values=$(abspath $path)")
+    cmd=$(echo "$cmd --state-values-file=$(abspath $path)")
+  fi
+
+  cmd=$(echo "$cmd --state-values-file=$(abspath $MICRO_ENV_CONFIG_FILE)")
+
+  if [[ "$DEBUG_ENABLED" == "true" ]]; then
+    cmd=$(echo "$cmd --debug")
   fi
 
   echo "Executing command -- $cmd"
