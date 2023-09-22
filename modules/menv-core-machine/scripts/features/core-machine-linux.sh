@@ -84,11 +84,11 @@ function setupSystem() {
   fi
 
   if which yum; then
-    yum install --nogpgcheck -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin \
-      docker-compose-plugin maven xfsprogs targetcli iscsi-initiator-utils unzip wget curl \
+    # TODO: Add support to install additional packages via config
+    yum install --nogpgcheck -y docker-ce docker-ce-cli containerd.io xfsprogs unzip wget curl \
       https://dl.fedoraproject.org/pub/epel/7/x86_64/Packages/h/htop-2.2.0-3.el7.x86_64.rpm
   elif which apk; then
-    apk add maven xfsprogs unzip wget curl htop
+    apk add xfsprogs unzip wget curl htop
   else
     echo "No supported package manager executable found! Exiting..."
     exit 1
@@ -136,8 +136,8 @@ EOF
   if which systemctl; then
     systemctl daemon-reload
     if [[ "$RESTART_DOCKER" == 1 ]]; then
-      service docker stop || true
-      service docker start
+      systemctl stop docker || true
+      systemctl start docker
     fi
   fi
 }

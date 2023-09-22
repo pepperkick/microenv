@@ -52,6 +52,13 @@ function prepareTargetCli() {
 }
 
 function prepareRook() {
+  if which yum; then
+    yum install --nogpgcheck -y targetcli iscsi-initiator-utils
+  else
+    echo "No supported package manager executable found! Exiting..."
+    exit 1
+  fi
+
   mkdir -p $PWD/storage/disks || true
   iscsiadm -m node --logout || true
 

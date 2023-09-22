@@ -1,0 +1,3 @@
+output: menv
+modules:
+  - test-module
