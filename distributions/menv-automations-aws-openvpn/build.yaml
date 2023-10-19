@@ -1,3 +1,0 @@
-output: menv-automations-aws-openvpn
-modules:
-  - automations-aws-openvpn

@@ -1,0 +1,4 @@
+output: menv-setup-aws
+modules:
+  - aws
+  - core-machine

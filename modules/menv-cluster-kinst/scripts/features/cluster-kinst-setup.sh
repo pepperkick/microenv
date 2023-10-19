@@ -1,5 +1,7 @@
 #!/bin/bash
 
+dockerNetwork="menv"
+
 function deleteOldCluster() {
   echo ""
   echo "================= CREATING CLUSTER ================="
@@ -25,7 +27,7 @@ function createKinstCluster() {
     name=$(readConfig ".cluster.kinst.machines[$machineIndex].name")
     docker=$(readConfig ".cluster.kinst.machines[$machineIndex].docker")
 
-    if [[ "$index" == "0" ]]; then
+    if [[ "$machineIndex" == "0" ]]; then
       # Setup the machine as the manager
       setupSwarmManager "$docker" "$name"
       export KINST_DOCKER_MANAGER="$docker"
@@ -58,27 +60,42 @@ function createKinstCluster() {
 
   # Recreate API server certificates with updated subjects
   controlPlaneIpAddress=$(DOCKER_HOST="$KINST_DOCKER_MANAGER" docker inspect $KINST_CONTROL_PLANE | jq -r ".[].NetworkSettings.Networks.kind.IPAddress")
-  DOMAINS="localhost,0.0.0.0,127.0.0.1,$controlPlaneIpAddress,$KINST_CONTROL_PLANE,internal,$DEPLOYMENT_ZONE,kube.$DEPLOYMENT_ZONE"
+  DOMAINS="localhost,0.0.0.0,127.0.0.1,internal"
+
+  if [[ ! -z "$controlPlaneIpAddress" ]]; then
+    DOMAINS="$DOMAINS,$controlPlaneIpAddress"
+  fi
+  if [[ ! -z "$KINST_CONTROL_PLANE" ]]; then
+    DOMAINS="$DOMAINS,$KINST_CONTROL_PLANE"
+  fi
+  if [[ ! -z "$DEPLOYMENT_ZONE" ]]; then
+    DOMAINS="$DOMAINS,$DEPLOYMENT_ZONE,kube.$DEPLOYMENT_ZONE"
+  fi
+
+  echo "Generating API certs for domains: $DOMAINS"
+
   DOCKER_HOST="$KINST_DOCKER_MANAGER" docker exec "$KINST_CONTROL_PLANE" rm /etc/kubernetes/pki/apiserver.key || true
   DOCKER_HOST="$KINST_DOCKER_MANAGER" docker exec "$KINST_CONTROL_PLANE" rm /etc/kubernetes/pki/apiserver.crt || true
   DOCKER_HOST="$KINST_DOCKER_MANAGER" docker exec "$KINST_CONTROL_PLANE" kubeadm init phase certs apiserver --apiserver-cert-extra-sans=$DOMAINS
   DOCKER_HOST="$KINST_DOCKER_MANAGER" docker exec "$KINST_CONTROL_PLANE" cat /etc/kubernetes/admin.conf > ./kubeconfig
 
   sed -i "s,    server: https://${CLUSTER_NAME}-control-plane:6443,    server: https://127.0.0.1:55555,g" kubeconfig
-  cp ./kubeconfig ~/.kube/config
-  cp ./kubeconfig ~/.kube/config-kind-$CLUSTER_NAME
-  export KUBECONFIG=~/.kube/config-kind-$CLUSTER_NAME
-
-  CONTEXT_NAME=$(echo $DEPLOYMENT_ZONE | cut -d"." -f1 | cut -d"-" -f1-)
+  cp ./kubeconfig ~/.kube/config || true
+  cp ./kubeconfig ~/.kube/config-kind-$CLUSTER_NAME || true
+  export KUBECONFIG=./kubeconfig
 
   rm -f ./kubeconfig.external || true
   cp ./kubeconfig ./kubeconfig.external
-  sed -i "s,    server: https://127.0.0.1:55555,    server: https://kube.$DEPLOYMENT_ZONE:55555,g" kubeconfig.external
-  sed -i "s,  name: kind-${CLUSTER_NAME},  name: kind-${CONTEXT_NAME},g" kubeconfig.external
-  sed -i "s,    cluster: kind-${CLUSTER_NAME},    cluster: kind-${CONTEXT_NAME},g" kubeconfig.external
-  sed -i "s,    user: kind-${CLUSTER_NAME},    user: kind-${CONTEXT_NAME},g" kubeconfig.external
-  sed -i "s,- name: kind-${CLUSTER_NAME},- name: kind-${CONTEXT_NAME},g" kubeconfig.external
-  sed -i "s,current-context: kind-${CLUSTER_NAME},current-context: kind-${CONTEXT_NAME},g" kubeconfig.external
+
+  CONTEXT_NAME=$(echo $DEPLOYMENT_ZONE | cut -d"." -f1 | cut -d"-" -f1-)
+  if [[ ! -z "$CONTEXT_NAME" ]]; then
+    sed -i "s,    server: https://127.0.0.1:55555,    server: https://kube.$DEPLOYMENT_ZONE:55555,g" kubeconfig.external
+    sed -i "s,  name: kind-${CLUSTER_NAME},  name: kind-${CONTEXT_NAME},g" kubeconfig.external
+    sed -i "s,    cluster: kind-${CLUSTER_NAME},    cluster: kind-${CONTEXT_NAME},g" kubeconfig.external
+    sed -i "s,    user: kind-${CLUSTER_NAME},    user: kind-${CONTEXT_NAME},g" kubeconfig.external
+    sed -i "s,- name: kind-${CLUSTER_NAME},- name: kind-${CONTEXT_NAME},g" kubeconfig.external
+    sed -i "s,current-context: kind-${CLUSTER_NAME},current-context: kind-${CONTEXT_NAME},g" kubeconfig.external
+  fi
 
   # Check connection
   sleep 5
@@ -97,6 +114,8 @@ function setupSwarmManager() {
       exit 1
     fi
 
+    echo "Manager Machine $name ($dockerHost) is already manager of the docker swarm."
+    checkDockerNetwork "$dockerHost"
     return
   fi
 
@@ -112,6 +131,7 @@ function setupSwarmWorker() {
   name="$2"
 
   if isInSwarm "$dockerHost"; then
+    echo "Worker Machine $name ($dockerHost) is already in a docker swarm."
     return
   fi
 
@@ -145,8 +165,8 @@ function isSwarmLeader() {
 
 function checkDockerNetwork() {
   # Create the network if it does not exist
-  DOCKER_HOST="$1" docker network list | grep "kind" || \
-  DOCKER_HOST="$1" docker network create --driver overlay --subnet "$IP_SUBNET.0/16" --attachable "kind"
+  DOCKER_HOST="$1" docker network list | grep "$dockerNetwork" || \
+  DOCKER_HOST="$1" docker network create --driver overlay --subnet "$IP_SUBNET.0/16" --attachable "$dockerNetwork"
 }
 
 function setupKindControlPlane() {
@@ -169,7 +189,7 @@ function setupKindControlPlane() {
       --volume /var --volume /lib/modules:/lib/modules:ro \
       -e KIND_EXPERIMENTAL_CONTAINERD_SNAPSHOTTER \
       --detach --tty \
-      --net kind \
+      --net $dockerNetwork \
       --restart=on-failure:1 \
       --init=false \
       -p 55555:6443 \
@@ -203,7 +223,7 @@ function setupKindWorker() {
       --volume /var --volume /lib/modules:/lib/modules:ro \
       -e KIND_EXPERIMENTAL_CONTAINERD_SNAPSHOTTER \
       --detach --tty \
-      --net kind \
+      --net $dockerNetwork \
       --restart=on-failure:1 \
       --init=false \
       kindest/node:v1.25.9@sha256:c08d6c52820aa42e533b70bce0c2901183326d86dcdcbedecc9343681db45161

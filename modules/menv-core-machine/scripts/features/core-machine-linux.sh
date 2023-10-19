@@ -145,7 +145,7 @@ EOF
 function setupDockerRepo() {
   # Create docker yum repo file if it does not exist
   if which docker; then
-    docker version
+    docker version || true
   else
     dest="/etc/yum.repos.d/docker-ce.repo"
     if [[ ! -f "$dest" ]] || [[ $(readConfig ".machine.force_update_configs" "false") == "true" ]]; then
