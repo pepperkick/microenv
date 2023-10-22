@@ -47,7 +47,7 @@ do
     --volume /var --volume /lib/modules:/lib/modules:ro \
     -e KIND_EXPERIMENTAL_CONTAINERD_SNAPSHOTTER \
     --detach --tty \
-    --net kind \
+    --net $DOCKER_NETWORK \
     --restart=on-failure:1 \
     --init=false \
     $defaultImage

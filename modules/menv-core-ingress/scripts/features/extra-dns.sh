@@ -1,6 +1,10 @@
 #!/bin/bash
 
 function setupDnsEntry() {
+  if [[ "$(readConfig ".dns.enabled" "true")" == "false" ]]; then
+    return
+  fi
+
   mode=$(readConfig ".dns.record" "manual")
   eventStage "DnsEntryProcess_$mode"
 }

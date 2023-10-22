@@ -37,7 +37,7 @@ function deployIngressServer() {
   # Deploy a new ingress server
   docker ps -a | grep "$INGRESS_CONTAINER_NAME" || \
   docker run -d --name $INGRESS_CONTAINER_NAME \
-    --restart always --net kind --ip ${IP_SUBNET}.200 \
+    --restart always --net $DOCKER_NETWORK --ip ${IP_SUBNET}.200 \
     --publish ${LISTEN_IP}:80:80 --publish ${LISTEN_IP}:443:443 \
     -v ${PWD}/${INGRESS_CONFIG_FILE}:/etc/nginx/nginx.conf \
     -v ${PWD}/certs:/etc/nginx/ssl/certs nginx

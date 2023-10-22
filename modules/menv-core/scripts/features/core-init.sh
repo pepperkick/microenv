@@ -30,6 +30,8 @@ function initialize() {
   mkdir -p "./configs"
 
   export KUBECONFIG=./kubeconfig
+
+  export DOCKER_NETWORK="kind"
 }
 
 event on initStartup initialize

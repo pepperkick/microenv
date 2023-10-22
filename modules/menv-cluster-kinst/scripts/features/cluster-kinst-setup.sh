@@ -1,7 +1,5 @@
 #!/bin/bash
 
-dockerNetwork="menv"
-
 function deleteOldCluster() {
   echo ""
   echo "================= CREATING CLUSTER ================="
@@ -59,7 +57,7 @@ function createKinstCluster() {
   done
 
   # Recreate API server certificates with updated subjects
-  controlPlaneIpAddress=$(DOCKER_HOST="$KINST_DOCKER_MANAGER" docker inspect $KINST_CONTROL_PLANE | jq -r ".[].NetworkSettings.Networks.kind.IPAddress")
+  controlPlaneIpAddress=$(DOCKER_HOST="$KINST_DOCKER_MANAGER" docker inspect $KINST_CONTROL_PLANE | jq -r ".[].NetworkSettings.Networks.$DOCKER_NETWORK.IPAddress")
   DOMAINS="localhost,0.0.0.0,127.0.0.1,internal"
 
   if [[ ! -z "$controlPlaneIpAddress" ]]; then
@@ -99,7 +97,19 @@ function createKinstCluster() {
 
   # Check connection
   sleep 5
-  kubectl get nodes
+
+  # If connection fails, try with external kubeconfig
+  if ! kubectl get nodes; then
+    echo "Trying with external kubeconfig..."
+    export KUBECONFIG=./kubeconfig.external
+    cp ./kubeconfig.external ~/.kube/config || true
+  fi
+
+  # If connection still fails, then fail
+  if ! kubectl get nodes; then
+    echo "ERROR: Unable to communicate with k8s cluster, exiting..."
+    exit 1
+  fi
 }
 
 function setupSwarmManager() {
@@ -165,8 +175,8 @@ function isSwarmLeader() {
 
 function checkDockerNetwork() {
   # Create the network if it does not exist
-  DOCKER_HOST="$1" docker network list | grep "$dockerNetwork" || \
-  DOCKER_HOST="$1" docker network create --driver overlay --subnet "$IP_SUBNET.0/16" --attachable "$dockerNetwork"
+  DOCKER_HOST="$1" docker network list | grep "$DOCKER_NETWORK" || \
+  DOCKER_HOST="$1" docker network create --driver overlay --subnet "$IP_SUBNET.0/16" --attachable "$DOCKER_NETWORK"
 }
 
 function setupKindControlPlane() {
@@ -189,7 +199,7 @@ function setupKindControlPlane() {
       --volume /var --volume /lib/modules:/lib/modules:ro \
       -e KIND_EXPERIMENTAL_CONTAINERD_SNAPSHOTTER \
       --detach --tty \
-      --net $dockerNetwork \
+      --net $DOCKER_NETWORK \
       --restart=on-failure:1 \
       --init=false \
       -p 55555:6443 \
@@ -223,7 +233,7 @@ function setupKindWorker() {
       --volume /var --volume /lib/modules:/lib/modules:ro \
       -e KIND_EXPERIMENTAL_CONTAINERD_SNAPSHOTTER \
       --detach --tty \
-      --net $dockerNetwork \
+      --net $DOCKER_NETWORK \
       --restart=on-failure:1 \
       --init=false \
       kindest/node:v1.25.9@sha256:c08d6c52820aa42e533b70bce0c2901183326d86dcdcbedecc9343681db45161
@@ -276,8 +286,12 @@ function setupNodeContainer() {
   DOCKER_HOST="$dockerHost" docker cp "./.container-config.tmp" "$nodeName:/etc/containerd/config.toml"
 
   noProxyRegistries=$(readConfig ".cluster.repositories.no_proxy[]")
-  noProxyRegistriesFormatted=$(echo "$noProxyRegistries" | tr "\n" ",")
-  noProxyRegistriesFormatted=$(echo ",${noProxyRegistriesFormatted%?}")
+  if [[ -z "$noProxyRegistries" ]]; then
+    noProxyRegistriesFormatted=""
+  else
+    noProxyRegistriesFormatted=$(echo "$noProxyRegistries" | tr "\n" ",")
+    noProxyRegistriesFormatted=$(echo ",${noProxyRegistriesFormatted%?}")
+  fi
 
   if [[ $(readConfig ".machine.docker.local_registry.enabled" "false") != "true" ]]; then
     if [[ $(readConfig ".machine.proxy.enabled" "true") == "true" ]]; then

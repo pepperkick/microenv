@@ -25,7 +25,7 @@ function deployDnsServer() {
   docker ps -a | grep "$DNS_CONTAINER_NAME" || \
   docker run --restart always -d \
     --name "$DNS_CONTAINER_NAME" \
-    --cap-add=NET_ADMIN --net=kind --ip ${IP_SUBNET}.180 \
+    --cap-add=NET_ADMIN --net=$DOCKER_NETWORK --ip ${IP_SUBNET}.180 \
     --hostname "$DNS_CONTAINER_NAME" \
     -v ${PWD}/${DNSMASQ_CONFIG_FILE}:/etc/dnsmasq.conf \
     jpillora/dnsmasq
