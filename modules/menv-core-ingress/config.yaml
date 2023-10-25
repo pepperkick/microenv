@@ -21,6 +21,10 @@ ingress:
       key: ./certs/key.pem
       bundle: ./certs/cert-bundle.pem
 
+  # Configure the ingress controller chart
+  controller:
+    enabled: false
+
 # This section configures the dnsmasq server
 dns:
   enabled: true

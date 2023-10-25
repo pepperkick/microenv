@@ -10,6 +10,10 @@ function initIngressServer() {
 }
 
 function deployIngressServer() {
+  if [[ "$(readConfig ".ingress.enabled" "true")" == "false" ]]; then
+    return
+  fi
+
   echo ""
   echo "================= DEPLOYING INGRESS SERVER ================="
 

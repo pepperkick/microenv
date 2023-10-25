@@ -31,6 +31,8 @@ function initialize() {
 
   export KUBECONFIG=./kubeconfig
 
+  # For some reason kind kube proxy does not work if network name is not "kind"
+  # TODO: Have to investigate why does this happen
   export DOCKER_NETWORK="kind"
 }
 
