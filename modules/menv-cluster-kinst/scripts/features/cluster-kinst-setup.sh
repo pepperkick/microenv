@@ -21,6 +21,7 @@ function createKinstCluster() {
     exit 1
   fi
 
+  declare -a taintNodes=()
   for machineIndex in `seq 0 $length`; do
     name=$(readConfig ".cluster.kinst.machines[$machineIndex].name")
     docker=$(readConfig ".cluster.kinst.machines[$machineIndex].docker")
@@ -50,6 +51,13 @@ function createKinstCluster() {
       nodeName=$(readConfig ".cluster.kinst.machines[$machineIndex].nodes[$nodeIndex].name")
       nodeLabels=$(readConfig ".cluster.kinst.machines[$machineIndex].nodes[$nodeIndex].labels")
       nodeLabelsFormatted=$(echo "$nodeLabels" | yq -op | sed "s/ = /=/g" | tr "\n" ",")
+      nodeTaints=$(readArrayLength ".cluster.kinst.machines[$machineIndex].nodes[$nodeIndex].taints")
+      for nodeTaintsIndex in `seq 0 $nodeTaints`; do
+        taintKey=$(readConfig ".cluster.kinst.machines[$machineIndex].nodes[$nodeIndex].taints[$nodeTaintsIndex].key")
+        taintValue=$(readConfig ".cluster.kinst.machines[$machineIndex].nodes[$nodeIndex].taints[$nodeTaintsIndex].value")
+        taintEffect=$(readConfig ".cluster.kinst.machines[$machineIndex].nodes[$nodeIndex].taints[$nodeTaintsIndex].effect")
+        taintNodes+=("${CLUSTER_NAME}-$nodeName $taintKey=$taintValue:$taintEffect")
+      done
 
       setupKindWorker "$docker" "$nodeName" "${nodeLabelsFormatted%?}"
       setupNodeContainer "$docker" "$nodeName"
@@ -110,6 +118,13 @@ function createKinstCluster() {
     echo "ERROR: Unable to communicate with k8s cluster, exiting..."
     exit 1
   fi
+
+  # Taint nodes
+  for i in "${taintNodes[@]}"
+  do
+    echo "Tainting node: $i..."
+    kubectl taint nodes --overwrite=true $i
+  done
 }
 
 function setupSwarmManager() {
@@ -319,19 +334,19 @@ function setupKubeadmConfig() {
 
   # Setup kubeadm.conf
   DOCKER_HOST="$dockerHost" docker exec "$nodeName" sh -c "cat <<-EOF >/kind/kubeadm.conf
+apiVersion: kubeadm.k8s.io/v1beta3
+kind: ClusterConfiguration
 apiServer:
   certSANs:
   - localhost
   - 0.0.0.0
   extraArgs:
     runtime-config: ""
-apiVersion: kubeadm.k8s.io/v1beta3
 clusterName: ${CLUSTER_NAME}
 controlPlaneEndpoint: ${nodeName}:6443
 controllerManager:
   extraArgs:
     enable-hostpath-provisioner: \"true\"
-kind: ClusterConfiguration
 kubernetesVersion: v1.25.9
 networking:
   podSubnet: 192.168.0.0/16
@@ -340,9 +355,9 @@ scheduler:
   extraArgs: null
 ---
 apiVersion: kubeadm.k8s.io/v1beta3
+kind: InitConfiguration
 bootstrapTokens:
 - token: abcdef.0123456789abcdef
-kind: InitConfiguration
 localAPIEndpoint:
   advertiseAddress: ${nodeIpAddress}
   bindPort: 6443
@@ -354,12 +369,12 @@ nodeRegistration:
     provider-id: kind://docker/${CLUSTER_NAME}/${nodeName}
 ---
 apiVersion: kubeadm.k8s.io/v1beta3
+kind: JoinConfiguration
 discovery:
   bootstrapToken:
     apiServerEndpoint: ${controlPlane}:6443
     token: abcdef.0123456789abcdef
     unsafeSkipCAVerification: true
-kind: JoinConfiguration
 nodeRegistration:
   criSocket: unix:///run/containerd/containerd.sock
   kubeletExtraArgs:
@@ -368,6 +383,7 @@ nodeRegistration:
     provider-id: kind://docker/${CLUSTER_NAME}/${nodeName}
 ---
 apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
 cgroupDriver: systemd
 cgroupRoot: /kubelet
 evictionHard:
@@ -376,14 +392,13 @@ evictionHard:
   nodefs.inodesFree: 0%
 failSwapOn: false
 imageGCHighThresholdPercent: 100
-kind: KubeletConfiguration
 ---
 apiVersion: kubeproxy.config.k8s.io/v1alpha1
+kind: KubeProxyConfiguration
 conntrack:
   maxPerCore: 0
 iptables:
   minSyncPeriod: 1s
-kind: KubeProxyConfiguration
 mode: iptables
 EOF
 "

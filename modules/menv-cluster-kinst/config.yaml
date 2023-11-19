@@ -38,6 +38,11 @@ cluster:
             labels:
               dedicated: components
               test: components
+            taints:
+              - key: "components"
+                operator: "Equal"
+                value: "true"
+                effect: "NoSchedule"
       - name: worker1
         docker: 10.10.10.11:2375
         nodes:
