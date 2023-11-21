@@ -84,6 +84,14 @@ function setupSystem() {
   fi
 
   if which yum; then
+    if [[ $(readConfig ".machine.proxy.enabled" "true") == "true" ]]; then
+      if cat /etc/yum.conf | grep prxoy; then
+        sed -i "s/proxy=.*/proxy=$(readConfig ".machine.proxy.http_endpoint" "http://proxy:3128/")/g" /etc/yum.conf
+      else
+        echo "proxy=$(readConfig ".machine.proxy.http_endpoint" "http://proxy:3128/")" >> /etc/yum.conf
+      fi
+    fi
+
     # TODO: Add support to install additional packages via config
     yum install --nogpgcheck -y docker-ce docker-ce-cli containerd.io xfsprogs unzip wget curl \
       https://dl.fedoraproject.org/pub/epel/7/x86_64/Packages/h/htop-2.2.0-3.el7.x86_64.rpm
