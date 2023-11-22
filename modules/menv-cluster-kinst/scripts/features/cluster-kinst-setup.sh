@@ -21,6 +21,8 @@ function createKinstCluster() {
     exit 1
   fi
 
+  defaultNodeImage=$(readConfig ".cluster.kinst.image" "kindest/node:v1.25.11@sha256:227fa11ce74ea76a0474eeefb84cb75d8dad1b08638371ecf0e86259b35be0c8")
+
   declare -a taintNodes=()
   for machineIndex in `seq 0 $length`; do
     name=$(readConfig ".cluster.kinst.machines[$machineIndex].name")
@@ -41,7 +43,7 @@ function createKinstCluster() {
 
     if [[ "$machineIndex" == "0" ]]; then
       # Setup the control plane
-      setupKindControlPlane "$docker"
+      setupKindControlPlane "$docker" "$defaultNodeImage"
       export KINST_CONTROL_PLANE="${CLUSTER_NAME}-control-plane"
       setupNodeContainer "$docker" "$KINST_CONTROL_PLANE"
     fi
@@ -52,6 +54,12 @@ function createKinstCluster() {
       nodeLabels=$(readConfig ".cluster.kinst.machines[$machineIndex].nodes[$nodeIndex].labels")
       nodeLabelsFormatted=$(echo "$nodeLabels" | yq -op | sed "s/ = /=/g" | tr "\n" ",")
       nodeTaints=$(readArrayLength ".cluster.kinst.machines[$machineIndex].nodes[$nodeIndex].taints")
+      nodeImage=$(readConfig ".cluster.kinst.machines[$machineIndex].nodes[$nodeIndex].image")
+
+      if [[ -z "$nodeImage" ]]; then
+        nodeImage="$defaultNodeImage"
+      fi
+
       for nodeTaintsIndex in `seq 0 $nodeTaints`; do
         taintKey=$(readConfig ".cluster.kinst.machines[$machineIndex].nodes[$nodeIndex].taints[$nodeTaintsIndex].key")
         taintValue=$(readConfig ".cluster.kinst.machines[$machineIndex].nodes[$nodeIndex].taints[$nodeTaintsIndex].value")
@@ -59,7 +67,7 @@ function createKinstCluster() {
         taintNodes+=("${CLUSTER_NAME}-$nodeName $taintKey=$taintValue:$taintEffect")
       done
 
-      setupKindWorker "$docker" "$nodeName" "${nodeLabelsFormatted%?}"
+      setupKindWorker "$docker" "$nodeImage" "$nodeName" "${nodeLabelsFormatted%?}"
       setupNodeContainer "$docker" "$nodeName"
     done
   done
@@ -196,11 +204,19 @@ function checkDockerNetwork() {
 
 function setupKindControlPlane() {
   dockerHost="$1"
+  image="$2"
   nodeName="${CLUSTER_NAME}-control-plane"
 
   if DOCKER_HOST="$dockerHost" docker ps -a | grep "$nodeName"; then
     echo "Control plane with name $nodeName already exists"
     return
+  fi
+
+  additionalArgs=""
+  enableCgroups=false
+  if DOCKER_HOST="$dockerHost" docker info | grep "cgroupns"; then
+    enableCgroups=true
+    additionalArgs="$additionalArgs --cgroupns=private"
   fi
 
   DOCKER_HOST="$dockerHost" docker run --name $nodeName --hostname $nodeName \
@@ -209,17 +225,24 @@ function setupKindControlPlane() {
       --label io.x-k8s.kind.dynamic="yes" \
       --label io.x-k8s.kind.distributed="yes" \
       --privileged \
-      --security-opt seccomp=unconfined --security-opt apparmor=unconfined \
-      --tmpfs /tmp --tmpfs /run \
-      --volume /var --volume /lib/modules:/lib/modules:ro \
+      --security-opt seccomp=unconfined \
+      --security-opt apparmor=unconfined \
+      --tmpfs /tmp \
+      --tmpfs /run \
+      --volume /var \
+      --volume /lib/modules:/lib/modules:ro \
       -e KIND_EXPERIMENTAL_CONTAINERD_SNAPSHOTTER \
       --detach --tty \
       --net $DOCKER_NETWORK \
       --restart=on-failure:1 \
       --init=false \
       -p 55555:6443 \
-      kindest/node:v1.25.9@sha256:c08d6c52820aa42e533b70bce0c2901183326d86dcdcbedecc9343681db45161
+      $additionalArgs \
+      $image
 
+  if [[ "$enableCgroups" == "true" ]]; then
+    waitForCgroups "$dockerHost" "$nodeName"
+  fi
   setupKubeadmConfig "$dockerHost" "$nodeName" "$nodeName" ""
 
   # Create the control plane node
@@ -228,13 +251,21 @@ function setupKindControlPlane() {
 
 function setupKindWorker() {
   dockerHost="$1"
-  nodeName="${CLUSTER_NAME}-$2"
-  nodeLabels="$3"
+  image="$2"
+  nodeName="${CLUSTER_NAME}-$3"
+  nodeLabels="$4"
 
   # Check if node exists
   if DOCKER_HOST="$dockerHost" docker ps -a | grep "$nodeName"; then
     echo "A node with name $nodeName already exists"
     return
+  fi
+
+  additionalArgs=""
+  enableCgroups=false
+  if DOCKER_HOST="$dockerHost" docker info | grep "cgroupns"; then
+    enableCgroups=true
+    additionalArgs="$additionalArgs --cgroupns=private"
   fi
 
   DOCKER_HOST="$dockerHost" docker run --name $nodeName --hostname $nodeName \
@@ -243,16 +274,23 @@ function setupKindWorker() {
       --label io.x-k8s.kind.dynamic="yes" \
       --label io.x-k8s.kind.distributed="yes" \
       --privileged \
-      --security-opt seccomp=unconfined --security-opt apparmor=unconfined \
-      --tmpfs /tmp --tmpfs /run \
-      --volume /var --volume /lib/modules:/lib/modules:ro \
+      --security-opt seccomp=unconfined \
+      --security-opt apparmor=unconfined \
+      --tmpfs /tmp \
+      --tmpfs /run \
+      --volume /var \
+      --volume /lib/modules:/lib/modules:ro \
       -e KIND_EXPERIMENTAL_CONTAINERD_SNAPSHOTTER \
       --detach --tty \
       --net $DOCKER_NETWORK \
       --restart=on-failure:1 \
       --init=false \
-      kindest/node:v1.25.9@sha256:c08d6c52820aa42e533b70bce0c2901183326d86dcdcbedecc9343681db45161
+      $additionalArgs \
+      $image
 
+  if [[ "$enableCgroups" == "true" ]]; then
+    waitForCgroups "$dockerHost" "$nodeName"
+  fi
   setupKubeadmConfig "$dockerHost" "$nodeName" "$KINST_CONTROL_PLANE" "$nodeLabels"
 
   # Join the worker node
@@ -403,6 +441,25 @@ mode: iptables
 EOF
 "
 }
+
+function waitForCgroups() {
+  dockerHost="$1"
+  nodeName="$2"
+
+  retry=0
+  while [[ "$retry" < 10 ]]; do
+    if DOCKER_HOST="$1" docker logs "$2" | grep -i "cgroup"; then
+      sleep 5
+      return
+    fi
+
+    echo "Waiting for cgroups to be up for $2..."
+    sleep 5
+  done
+
+  echo "Timeout waiting for cgroups to be up for $2"
+}
+
 
 function deployDependenciesCluster() {
   echo ""

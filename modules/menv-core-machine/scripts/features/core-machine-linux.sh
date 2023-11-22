@@ -92,9 +92,15 @@ function setupSystem() {
       fi
     fi
 
+    if cat /etc/os-release | grep "Amazon Linux 2"; then
+      yum install -y docker htop
+    else
+      yum install -y docker-ce docker-ce-cli containerd.io curl \
+        https://dl.fedoraproject.org/pub/epel/7/x86_64/Packages/h/htop-2.2.0-3.el7.x86_64.rpm
+    fi
+
     # TODO: Add support to install additional packages via config
-    yum install --nogpgcheck -y docker-ce docker-ce-cli containerd.io xfsprogs unzip wget curl \
-      https://dl.fedoraproject.org/pub/epel/7/x86_64/Packages/h/htop-2.2.0-3.el7.x86_64.rpm
+    yum install --nogpgcheck -y xfsprogs unzip wget
   elif which apk; then
     apk add xfsprogs unzip wget curl htop
   else
@@ -154,7 +160,7 @@ function setupDockerRepo() {
   # Create docker yum repo file if it does not exist
   if which docker; then
     docker version || true
-  else
+  elif ! cat /etc/os-release | grep "Amazon Linux 2"; then
     dest="/etc/yum.repos.d/docker-ce.repo"
     if [[ ! -f "$dest" ]] || [[ $(readConfig ".machine.force_update_configs" "false") == "true" ]]; then
 cat <<\EOF > "$dest"

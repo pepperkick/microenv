@@ -21,8 +21,8 @@ cluster:
 
   kinst:
     # Configure the kubernetes nodes for KINST
-    nodes:
-      image: kindest/node:v1.25.9@sha256:c08d6c52820aa42e533b70bce0c2901183326d86dcdcbedecc9343681db45161
+    # https://github.com/kubernetes-sigs/kind/releases for images
+    image: kindest/node:v1.25.9@sha256:c08d6c52820aa42e533b70bce0c2901183326d86dcdcbedecc9343681db45161
 
     # Configure the machines to use for KINST.
     # Each machine must be accessible from where the scripts are running from to create docker swarm.
@@ -43,6 +43,7 @@ cluster:
                 operator: "Equal"
                 value: "true"
                 effect: "NoSchedule"
+            image: kindest/node:v1.25.9@sha256:c08d6c52820aa42e533b70bce0c2901183326d86dcdcbedecc9343681db45161
       - name: worker1
         docker: 10.10.10.11:2375
         nodes:
