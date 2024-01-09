@@ -369,6 +369,7 @@ function setupKubeadmConfig() {
 
   # Get assigned IP of the node
   nodeIpAddress=$(DOCKER_HOST="$dockerHost" docker inspect $nodeName | jq -r ".[].NetworkSettings.Networks.kind.IPAddress")
+  kubernetesVersion=$(readConfig ".cluster.kinst.kubernetesVersion" "v1.25.9")
 
   # Setup kubeadm.conf
   DOCKER_HOST="$dockerHost" docker exec "$nodeName" sh -c "cat <<-EOF >/kind/kubeadm.conf
@@ -385,7 +386,7 @@ controlPlaneEndpoint: ${nodeName}:6443
 controllerManager:
   extraArgs:
     enable-hostpath-provisioner: \"true\"
-kubernetesVersion: v1.25.9
+kubernetesVersion: ${kubernetesVersion}
 networking:
   podSubnet: 192.168.0.0/16
   serviceSubnet: 10.96.0.0/16
