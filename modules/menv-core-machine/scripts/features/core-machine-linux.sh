@@ -93,7 +93,11 @@ function setupSystem() {
     fi
 
     if cat /etc/os-release | grep "Amazon Linux 2"; then
-      yum install -y docker htop
+      # Retry if failed
+      if ! yum install -y docker htop; then
+        sleep 15
+        yum install -y docker htop
+      fi
     else
       yum install -y docker-ce docker-ce-cli containerd.io curl \
         https://dl.fedoraproject.org/pub/epel/7/x86_64/Packages/h/htop-2.2.0-3.el7.x86_64.rpm

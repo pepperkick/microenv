@@ -14,6 +14,7 @@ ingress:
     # Automatically generate or fetch certificate based on the mode
     # Following modes are supported
     # - manual: Place the certs manually at the specified location.
+    # - selfSigned: Generate self-signed certificates
     mode: manual
 
     # For Manual mode, the paths must point to corresponding cert files

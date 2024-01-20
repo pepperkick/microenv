@@ -93,6 +93,11 @@ function createKinstCluster() {
   DOCKER_HOST="$KINST_DOCKER_MANAGER" docker exec "$KINST_CONTROL_PLANE" kubeadm init phase certs apiserver --apiserver-cert-extra-sans=$DOMAINS
   DOCKER_HOST="$KINST_DOCKER_MANAGER" docker exec "$KINST_CONTROL_PLANE" cat /etc/kubernetes/admin.conf > ./kubeconfig
 
+  mode=$(readConfig ".ingress.certs.mode" "manual")
+  if [[ "$mode" == "selfSigned" ]]; then
+    sed -i "s,    certificate-authority-data:.*,    insecure-skip-tls-verify: true,g" kubeconfig
+  fi
+
   sed -i "s,    server: https://${CLUSTER_NAME}-control-plane:6443,    server: https://127.0.0.1:55555,g" kubeconfig
   cp ./kubeconfig ~/.kube/config || true
   cp ./kubeconfig ~/.kube/config-kind-$CLUSTER_NAME || true

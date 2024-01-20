@@ -1,4 +1,4 @@
-# MicroEnv Cluster KIND
+# MicroEnv Cluster KIND (Deprecated)
 
 Use KIND to create a new K8s cluster.
 
